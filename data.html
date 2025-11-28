@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Simple Database</title>
+<style>
+body { text-align: center; margin: 0; font-family: Arial, sans-serif; }
+#enterDetails { float: left; width: 50%; background-color: darkslategrey; color: florawhite; height: 90vh; }
+#findDetails { float: left; width: 50%; background-color: floralwhite; color: darkslategrey; height: 90vh; }
+input { width: 120px; }
+.navbar {
+  background-color: #222;
+  color: white;
+  padding: 10px;
+  text-align: right;
+}
+.navbar a {
+  color: white;
+  text-decoration: none;
+  background: #008CBA;
+  padding: 8px 12px;
+  margin-left: 10px;
+  border-radius: 5px;
+}
+.navbar a:hover { background: #006f98; }
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <a href="analytics.html">📊 View Analytics</a>
+  <a href="#" id="signOutBtn">🚪 Sign Out</a>
+</div>
+
+<div id="enterDetails">
+  <h1> Enter Details </h1>
+
+  <h4>ID</h4>
+  <input id="enterID" type="text">
+
+  <h4>Name</h4>
+  <input id="enterName" type="text">
+
+  <h4>Age</h4>
+  <input id="enterAge" type="number"> <br><br>
+
+  <button id="insert">INSERT</button>
+  <button id="update">UPDATE</button>
+  <button id="remove">REMOVE</button> <br><br>
+</div>
+
+<div id="findDetails">
+  <h1>Find by ID</h1>
+
+  <h4>ID</h4>
+  <input id="findID" type="text"> <br><br>
+  <button id="find">FIND</button>
+
+  <h3 id="findName"></h3>
+  <h3 id="findAge"></h3> <br><br>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+  import {
+    getDatabase, set, get, update, remove, ref, child, push
+  } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+  import {
+    getAuth, onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAbH8cKfr1DXsH79ERM2MxxrLC6dSCNKLI",
+    authDomain: "authfun-94145.firebaseapp.com",
+    databaseURL: "https://authfun-94145-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "authfun-94145",
+    storageBucket: "authfun-94145.appspot.com",
+    messagingSenderId: "1072766595105",
+    appId: "1:1072766595105:web:e79dd914825f63e8eef360"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase();
+  const auth = getAuth(app);
+
+  // ✅ Redirect protection
+  onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      window.location.href = "index.html";
+    }
+  });
+
+  const signOutBtn = document.querySelector("#signOutBtn");
+  signOutBtn.addEventListener("click", () => {
+    signOut(auth).then(() => {
+      window.location.href = "index.html";
+    });
+  });
+
+  const enterID = document.querySelector("#enterID");
+  const enterName = document.querySelector("#enterName");
+  const enterAge = document.querySelector("#enterAge");
+  const findID = document.querySelector("#findID");
+  const findName = document.querySelector("#findName");
+  const findAge = document.querySelector("#findAge");
+
+  const insertBtn = document.querySelector("#insert");
+  const updateBtn = document.querySelector("#update");
+  const removeBtn = document.querySelector("#remove");
+  const findBtn = document.querySelector("#find");
+
+  // 🔹 Log user activity
+  function logActivity(action, details) {
+    const user = auth.currentUser;
+    if (!user) return;
+    const logsRef = ref(db, "ActivityLogs");
+    const newLog = {
+      userEmail: user.email,
+      action: action,
+      details: details,
+      timestamp: new Date().toLocaleString()
+    };
+    push(logsRef, newLog);
+  }
+
+  function InsertData() {
+    set(ref(db, "People/" + enterID.value), {
+      Name: enterName.value,
+      ID: enterID.value,
+      Age: enterAge.value
+    })
+      .then(() => {
+        alert("Data added successfully!");
+        logActivity("INSERT", `Added ID ${enterID.value}`);
+      })
+      .catch((error) => { alert(error); });
+  }
+
+  function FindData() {
+    const dbref = ref(db);
+    get(child(dbref, "People/" + findID.value))
+      .then((snapshot) => {
+        if (snapshot.exists()) {
+          findName.innerHTML = "Name: " + snapshot.val().Name;
+          findAge.innerHTML = "Age: " + snapshot.val().Age;
+        } else {
+          alert("No data found");
+        }
+      })
+      .catch((error) => { alert(error); });
+  }
+
+  function UpdateData() {
+    update(ref(db, "People/" + enterID.value), {
+      Name: enterName.value,
+      Age: enterAge.value
+    })
+      .then(() => {
+        alert("Data updated successfully!");
+        logActivity("UPDATE", `Updated ID ${enterID.value}`);
+      })
+      .catch((error) => { alert(error); });
+  }
+
+  function RemoveData() {
+    remove(ref(db, "People/" + enterID.value))
+      .then(() => {
+        alert("Data removed successfully");
+        logActivity("REMOVE", `Removed ID ${enterID.value}`);
+      })
+      .catch((error) => { alert(error); });
+  }
+
+  insertBtn.addEventListener("click", InsertData);
+  updateBtn.addEventListener("click", UpdateData);
+  removeBtn.addEventListener("click", RemoveData);
+  findBtn.addEventListener("click", FindData);
+</script>
+</body>
+</html>

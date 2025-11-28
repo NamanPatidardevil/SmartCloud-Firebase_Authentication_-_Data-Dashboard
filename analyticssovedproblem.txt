@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Analytics</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(to right, #2c5364, #203a43, #0f2027);
+            color: white;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #1a1a1a;
+            padding: 15px;
+            font-size: 24px;
+            letter-spacing: 1px;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 25px;
+        }
+        .stat-box {
+            background-color: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 15px 25px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.4);
+        }
+        #recordsChart {
+            margin-top: 40px;
+            max-width: 700px;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        table {
+            margin: 30px auto;
+            border-collapse: collapse;
+            width: 80%;
+            background-color: rgba(255,255,255,0.1);
+        }
+        table, th, td {
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        th, td {
+            padding: 10px;
+        }
+        th {
+            background-color: rgba(255,255,255,0.2);
+        }
+        .buttons {
+            margin-top: 30px;
+        }
+        button {
+            background-color: #00b894;
+            border: none;
+            padding: 10px 20px;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #019875;
+        }
+    </style>
+</head>
+<body>
+
+    <header>📊 Dashboard Analytics</header>
+
+    <div class="stats">
+        <div class="stat-box">
+            <h3>Total Users</h3>
+            <p id="totalUsers">0</p>
+        </div>
+        <div class="stat-box">
+            <h3>Total Records</h3>
+            <p id="totalRecords">0</p>
+        </div>
+    </div>
+
+    <canvas id="recordsChart" width="400" height="200"></canvas>
+
+    <h2>🧾 Recent 3 Records</h2>
+    <table id="recordsTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Age</th>
+                <th>Created At</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="4">Loading data...</td></tr>
+        </tbody>
+    </table>
+
+    <div class="buttons">
+        <button onclick="window.location.href='data.html'">⬅ Back to Dashboard</button>
+        <button id="signOutButton">🚪 Sign Out</button>
+    </div>
+
+    <!-- ✅ FIXED: Proper Chart.js include (no import error now) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAbH8cKfr1DXsH79ERM2MxxrLC6dSCNKLI",
+            authDomain: "authfun-94145.firebaseapp.com",
+            databaseURL: "https://authfun-94145-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "authfun-94145",
+            storageBucket: "authfun-94145.appspot.com",
+            messagingSenderId: "1072766595105",
+            appId: "1:1072766595105:web:e79dd914825f63e8eef360"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        const dbRef = ref(db);
+
+        const signOutButton = document.getElementById("signOutButton");
+        signOutButton.addEventListener("click", () => {
+            signOut(auth).then(() => {
+                alert("Signed out successfully!");
+                window.location.href = "index.html";
+            });
+        });
+
+        // ✅ Fetch Data and Display
+        async function loadAnalytics() {
+            try {
+                const snapshot = await get(child(dbRef, "People"));
+                const tableBody = document.querySelector("#recordsTable tbody");
+
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    const records = Object.values(data);
+                    document.getElementById("totalRecords").innerText = records.length;
+                    document.getElementById("totalUsers").innerText = new Set(records.map(r => r.Name)).size;
+
+                    // Sort by createdAt (latest first)
+                    records.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                    const recent = records.slice(0, 3);
+
+                    // ✅ Table
+                    tableBody.innerHTML = recent.map(r => `
+                        <tr>
+                            <td>${r.ID}</td>
+                            <td>${r.Name || "-"}</td>
+                            <td>${r.Age || "-"}</td>
+                            <td>${r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}</td>
+                        </tr>
+                    `).join("");
+
+                    // ✅ Chart by Age
+                    const ctx = document.getElementById('recordsChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: records.map(r => r.Name || "Unknown"),
+                            datasets: [{
+                                label: 'Age',
+                                data: records.map(r => parseInt(r.Age) || 0),
+                                backgroundColor: 'rgba(0, 255, 200, 0.6)'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: { beginAtZero: true }
+                            }
+                        }
+                    });
+
+                } else {
+                    tableBody.innerHTML = "<tr><td colspan='4'>No records found.</td></tr>";
+                }
+
+            } catch (error) {
+                console.error("Error loading analytics:", error);
+                alert("Failed to load analytics data.");
+            }
+        }
+
+        loadAnalytics();
+    </script>
+</body>
+</html>
